@@ -1,0 +1,124 @@
+# =========================
+# macOS / Editor
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*~
+
+# =========================
+# Xcode / iOS
+# =========================
+# Build artifacts / Derived data
+build/
+DerivedData/
+
+# Per-user Xcode state (絶対にコミットしない)
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+
+# Old-style per-user files
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Source control metadata cached by Xcode
+*.xccheckout
+*.xcscmblueprint
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Archives / Symbols / IPAs
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Provisioning profiles (通常は配布しない)
+*.mobileprovision
+*.provisionprofile
+
+# NOTE:
+# - .xcodeproj / .xcworkspace / project.pbxproj はコミットする
+# - xcshareddata は共有したい設定ならコミットOK（ignoreしない）
+
+# =========================
+# Swift Package Manager
+# =========================
+.swiftpm/
+.build/
+Packages/
+# NOTE:
+# - Package.resolved は「アプリ」なら基本コミット推奨（依存固定のため）
+# - ライブラリの場合は運用方針に応じて
+
+# =========================
+# CocoaPods（使う場合）
+# =========================
+Pods/
+# NOTE:
+# - Podfile / Podfile.lock はコミットする（再現性）
+
+# =========================
+# Carthage（使う場合）
+# =========================
+Carthage/Build/
+Carthage/Checkouts/
+
+# =========================
+# Fastlane（使う場合）
+# =========================
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+# 署名関連は基本NG
+fastlane/README.md # ← これはドキュメントなので必要なら残してOK
+
+# =========================
+# Secrets / Env（汎用）
+# =========================
+*.env
+.env.*
+# ※ ビルドに必要な設定は .xcconfig 等で「ダミー値」を用意し、
+#   実値は .env や CI のシークレットで注入する運用がベター
+
+# ↓ 必要に応じて有効化（誤コミット防止）
+# GoogleService-Info.plist
+# FirebaseService-Info.plist
+# Config/*.xcconfig.local
+
+# =========================
+# 画像生成・一時ファイル（任意）
+# =========================
+*.tmp
+*.log
+
+# =========================
+# （任意）Node/TS ミニAPIを同リポジトリで持つ場合
+# =========================
+# api/ や backend/ 等、該当ディレクトリ配下に限定的に置くなら
+# /api/node_modules/
+# /api/.next/
+# /api/dist/
+# /api/.turbo/
+# /api/coverage/
+# /api/.env.local
+# /api/.env.*.local
+# NOTE:
+# - package-lock.json / yarn.lock / pnpm-lock.yaml は基本コミット
+
