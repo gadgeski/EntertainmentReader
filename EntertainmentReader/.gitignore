@@ -24,7 +24,7 @@ build/
 DerivedData/
 
 # Per-user Xcode state (絶対にコミットしない)
-xcuserdata/
+project.xcworkspace/xcuserdata/
 *.xcuserstate
 *.moved-aside
 
