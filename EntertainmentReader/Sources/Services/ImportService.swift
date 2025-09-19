@@ -5,6 +5,16 @@
 //  Created by Dev Tech on 2025/09/09.
 //
 
+//
+//  ImportService.swift
+//  EntertainmentReader
+//
+//  ノベル専用（Step B）
+//  - [REMOVED] importImages(from:) を削除（画像インポート廃止）
+//  - [NEW] 旧スキーマ(JSON: type/image)を読み込み → テキストだけ抽出してノベル化
+//  - [NEW] サニタイズ（空章/空作品の除去）
+//
+
 import Foundation
 import UniformTypeIdentifiers
 import UIKit
@@ -16,29 +26,52 @@ enum ImportError: Error {
 
 struct ImportService {
 
-    // JSON: [Work] もしくは Work 単体のどちらにも対応
+    // MARK: - Public: JSON Import
+
+    /// JSON からの取り込み
+    /// - 対応： [Work] / Work（現行スキーマ）、旧スキーマ（type/image を含む）
     static func importJSON(from urls: [URL]) throws -> [Work] {
         var results: [Work] = []
+
         for url in urls {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
             let data: Data
             do { data = try Data(contentsOf: url) }
             catch { throw ImportError.unreadableFile(url) }
 
-            let decoder = JSONDecoder()
-            if let many = try? decoder.decode([Work].self, from: data) {
+            // 1) 現行スキーマで decode を試みる
+            if let many = try? decodeWorks(data) {
                 results.append(contentsOf: many)
-            } else if let one = try? decoder.decode(Work.self, from: data) {
-                results.append(one)
-            } else {
-                throw ImportError.unsupportedFormat(url)
+                continue
             }
+            if let one = try? decodeWork(data) {
+                results.append(one)
+                continue
+            }
+
+            // 2) 旧スキーマ（type/image含む）で decode → ノベル化
+            if let manyLegacy = try? decodeLegacyWorks(data) {
+                results.append(contentsOf: manyLegacy.map(convertLegacyToWork))
+                continue
+            }
+            if let oneLegacy = try? decodeLegacyWork(data) {
+                results.append(convertLegacyToWork(oneLegacy))
+                continue
+            }
+
+            // 3) どれにも当たらなければ不明形式
+            throw ImportError.unsupportedFormat(url)
         }
-        return results
+
+        // [NEW] 空章/空作品を除去して返却
+        return sanitizeWorksForNovelOnly(results)
     }
 
-    // プレーンテキスト: 1ファイル=1作品（1章=本文）
+    // MARK: - Public: Text Import
+
+    /// プレーンテキスト：1ファイル=1作品（1章=本文）
     static func importText(from urls: [URL]) throws -> [Work] {
         var results: [Work] = []
         for url in urls {
@@ -53,47 +86,76 @@ struct ImportService {
                 id: UUID(),
                 title: title,
                 author: "インポート",
-                type: .novel,
-                chapters: [
-                    Chapter(id: UUID(), title: "本文", pages: [.text(text)])
-                ]
+                chapters: [Chapter(id: UUID(), title: "本文", pages: [.text(text)])]
             )
             results.append(work)
         }
-        return results
+        return sanitizeWorksForNovelOnly(results) // [NEW]
     }
 
-    // 画像: 選択した画像群 = 1作品（1章=全ページ）
-    static func importImages(from urls: [URL]) throws -> [Work] {
-        let fm = FileManager.default
-        let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
-        var pageNames: [String] = []
+    // [REMOVED] 画像インポート
+    // static func importImages(from urls: [URL]) throws -> [Work] { ... }
 
-        for url in urls {
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+    // MARK: - Sanitizer（ノベル専用の整形）
 
-            // 保存先の一意ファイル名を作成（オリジン名 + UUID）
-            let ext = url.pathExtension.isEmpty ? "img" : url.pathExtension
-            let base = url.deletingPathExtension().lastPathComponent
-            let unique = base + "_" + UUID().uuidString.prefix(8) + "." + ext
-            let dest = docs.appendingPathComponent(unique)
-
-            do {
-                if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
-                try fm.copyItem(at: url, to: dest)
-                pageNames.append(unique) // ← Documents 内のファイル名を保持
-            } catch {
-                throw ImportError.unreadableFile(url)
+    /// [NEW] 空の章・空の作品を取り除く
+    private static func sanitizeWorksForNovelOnly(_ works: [Work]) -> [Work] {
+        works.compactMap { w in
+            let cleanChapters = w.chapters.compactMap { ch -> Chapter? in
+                let texts = ch.pages.compactMap { page -> Page? in
+                    if case .text(let s) = page, s.isEmpty == false { return .text(s) }
+                    return nil
+                }
+                return texts.isEmpty ? nil : Chapter(id: ch.id, title: ch.title, pages: texts)
             }
+            return cleanChapters.isEmpty ? nil : Work(id: w.id, title: w.title, author: w.author, chapters: cleanChapters)
         }
+    }
 
-        // 並びはファイル名昇順に（見通しのため）
-        pageNames.sort()
+    // MARK: - Current Schema Decoders
 
-        let title = "画像インポート（\(pageNames.count)枚）"
-        let chapter = Chapter(id: UUID(), title: "第1話", pages: pageNames.map { .image($0) })
-        let work = Work(id: UUID(), title: title, author: "インポート", type: .manga, chapters: [chapter])
-        return [work]
+    private static func decodeWorks(_ data: Data) throws -> [Work] {
+        try JSONDecoder().decode([Work].self, from: data)
+    }
+    private static func decodeWork(_ data: Data) throws -> Work {
+        try JSONDecoder().decode(Work.self, from: data)
+    }
+
+    // MARK: - Legacy Schema Support（type/image を含む古い形式）
+
+    // 旧スキーマの簡易表現
+    private struct LegacyRawPage: Codable {
+        let kind: String
+        let value: String
+    }
+    private struct LegacyChapter: Codable {
+        let id: UUID
+        let title: String
+        let pages: [LegacyRawPage]
+    }
+    private struct LegacyWork: Codable {
+        let id: UUID
+        let title: String
+        let author: String
+        let type: String?      // "novel" / "manga" / or nil
+        let chapters: [LegacyChapter]
+    }
+
+    private static func decodeLegacyWorks(_ data: Data) throws -> [LegacyWork] {
+        try JSONDecoder().decode([LegacyWork].self, from: data)
+    }
+    private static func decodeLegacyWork(_ data: Data) throws -> LegacyWork {
+        try JSONDecoder().decode(LegacyWork.self, from: data)
+    }
+
+    /// 旧スキーマ → 現行 Work へ変換（image ページは捨て、text のみ採用）
+    private static func convertLegacyToWork(_ lw: LegacyWork) -> Work {
+        let chapters: [Chapter] = lw.chapters.compactMap { lc in
+            let texts: [Page] = lc.pages.compactMap { rp in
+                rp.kind.lowercased() == "text" ? .text(rp.value) : nil
+            }
+            return texts.isEmpty ? nil : Chapter(id: lc.id, title: lc.title, pages: texts)
+        }
+        return Work(id: lw.id, title: lw.title, author: lw.author, chapters: chapters)
     }
 }
