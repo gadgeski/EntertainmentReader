@@ -46,22 +46,6 @@
     ]
   },
   {
-    "id": "8F9EB35C-6FC7-4F75-8C6A-3BBD5E4B2540",
-    "title": "サンプル漫画",
-    "author": "井藤 由依",
-    "type": "manga",
-    "chapters": [
-      {
-        "id": "7D8E3B73-05A8-4C74-8B2C-8A6E4C3F1D21",
-        "title": "第1話",
-        "pages": [
-          { "kind": "image", "value": "manga_page_1" },
-          { "kind": "image", "value": "manga_page_2" }
-        ]
-      }
-    ]
-  },
-  {
     "id": "B17D4E2C-3A8F-4B2E-8F19-3A5D6F7C8E90",
     "title": "生徒会、笑いが止まらない",
     "author": "藤川 こはる",
