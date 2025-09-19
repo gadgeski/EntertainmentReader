@@ -5,20 +5,31 @@
 //  Created by Dev Tech on 2025/09/09.
 //
 
+//
+//  WorkDetailView.swift
+//  EntertainmentReader
+//
+//  ノベル一本化（Step A）対応版
+//  - 「続きから」導線は type 判定を外して常に表示対象へ（対象がある場合） [CHANGED]
+//  - 章遷移は常に NovelReaderView へ（マンガ分岐を削除） [REMOVED]
+//  - lastChapter.<workID> の動的キーで直近章を保存/復元（既存仕様を維持）
+//
+
 import SwiftUI
 
 struct WorkDetailView: View {
     let work: Work
 
-    // [NEW] この作品の「最後に読んだ章ID」を動的キーで保持
+    // 作品ごとの「最後に読んだ章ID」を保持（動的キー）
+    // 例: lastChapter.<workUUID> = <chapterUUIDString>
     @AppStorage private var lastChapterID: String
     init(work: Work) {
         self.work = work
-        // [NEW] 作品ごとに別のキーにする（例: lastChapter.XXXXXXXX-...）
+        // [CHANGED] ノベル一本化だがキー仕様は据え置き（互換維持）
         _lastChapterID = AppStorage(wrappedValue: "", "lastChapter.\(work.id.uuidString)")
     }
 
-    // [NEW] 保存された章IDに一致する章（ノベルのみを対象にするなら guard でもOK）
+    // 直近の章（保存があれば一致する章を返す）
     private var lastChapter: Chapter? {
         guard !lastChapterID.isEmpty else { return nil }
         return work.chapters.first { $0.id.uuidString == lastChapterID }
@@ -26,11 +37,12 @@ struct WorkDetailView: View {
 
     var body: some View {
         List {
-            // [NEW] ノベル作品かつ前回位置があれば「続きから」ショートカットを表示
-            if work.type == .novel, let resume = lastChapter {
+            // [CHANGED] 作品タイプの分岐を撤廃し、保存があるなら常に「続きから」を出す
+            if let resume = lastChapter {
                 Section {
                     NavigationLink {
-                        NovelReaderView(workID: work.id, chapter: resume) // [CHANGED] workID を渡す
+                        // [CHANGED] 常に NovelReaderView へ
+                        NovelReaderView(workID: work.id, chapter: resume)
                     } label: {
                         Label("続きから: \(resume.title)", systemImage: "book.fill")
                             .font(.headline)
@@ -38,15 +50,13 @@ struct WorkDetailView: View {
                 }
             }
 
-            // 章一覧
+            // 章一覧（常にノベル表示として遷移）
             Section {
                 ForEach(work.chapters) { ch in
                     NavigationLink(ch.title) {
-                        if work.type == .novel {
-                            NovelReaderView(workID: work.id, chapter: ch)  // [CHANGED] workID を渡す
-                        } else {
-                            MangaReaderView(chapter: ch)
-                        }
+                        // [REMOVED] if work.type == .novel { ... } else { MangaReaderView ... }
+                        // [CHANGED] 常にノベルとして表示（NovelReaderView は .text ページのみ連結して描画）
+                        NovelReaderView(workID: work.id, chapter: ch)
                     }
                 }
             }
@@ -55,8 +65,18 @@ struct WorkDetailView: View {
     }
 }
 
+// MARK: - Preview
+
 #Preview {
-    let vm = LibraryViewModel()
-    let sample = vm.works.first!
-    WorkDetailView(work: sample)
+    // 簡易プレビュー用ダミーデータ
+    let chapter1 = Chapter(id: UUID(), title: "第一章 雨の匂い", pages: [
+        .text("チャイムの余韻が、雨粒にほどけていった。\n\n放課後の廊下は薄い灰色で——")
+    ])
+    let chapter2 = Chapter(id: UUID(), title: "第二章 窓辺の合図", pages: [
+        .text("窓ガラスを二度叩く小さな音。それが合図だった。\n\n譜面台の上には短い旋律だけが残っている。")
+    ])
+    let work = Work(id: UUID(), title: "放課後、雨とピアノと、きみの嘘", author: "白石 透", type: .novel, chapters: [chapter1, chapter2])
+
+    // 直近章キーは実行ごとに変わるため、プレビューでは空のままでOK
+    return NavigationStack { WorkDetailView(work: work) }
 }
