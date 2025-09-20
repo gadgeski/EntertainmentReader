@@ -5,38 +5,61 @@
 //  Created by Dev Tech on 2025/09/09.
 //
 
+//
+//  ContentView.swift
+//  EntertainmentReader
+//
+//  - ライブラリ起点
+//  - しおり一覧導線
+//  - [CHANGED] 非推奨の NavigationLink(isActive:) を廃止し、navigationDestination(isPresented:) を採用
+//
+
 import SwiftUI
 
 struct ContentView: View {
-    // ✅ 状態の単一化：ここでだけ生成・保持
     @StateObject private var libraryVM = LibraryViewModel()
-    // [NEW] テーマ設定
     @StateObject private var settings = AppSettings()
+
+    // しおり一覧へのナビゲーション制御
+    @State private var showBookmarks: Bool = false
 
     var body: some View {
         NavigationStack {
-            // ✅ 子へ注入
             LibraryView(vm: libraryVM)
                 .navigationTitle("ライブラリ")
-                // [NEW] ルートでテーマメニュー
                 .toolbar {
-                    Menu {
-                        ForEach(ReadingTheme.allCases, id: \.self) { t in
-                            Button {
-                                settings.theme = t
-                            } label: {
-                                Label(t.label, systemImage: icon(for: t))
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+
+                        // [REMOVED] 非推奨の isActive リンク
+                        // NavigationLink(isActive: $showBookmarks) { ... } label: { EmptyView() }.hidden()
+
+                        // [UNCHANGED] テーマメニュー
+                        Menu {
+                            ForEach(ReadingTheme.allCases, id: \.self) { t in
+                                Button { settings.theme = t } label: {
+                                    Label(t.label, systemImage: icon(for: t))
+                                }
                             }
+                        } label: {
+                            Image(systemName: "paintbrush")
                         }
-                    } label: {
-                        Image(systemName: "paintbrush")
+                        .accessibilityLabel("テーマ")
+
+                        // しおり一覧ボタン（押下でフラグON）
+                        Button {
+                            showBookmarks = true
+                        } label: {
+                            Image(systemName: "bookmark")
+                        }
+                        .accessibilityLabel("しおり一覧")
                     }
-                    .accessibilityLabel("テーマ")
+                }
+                // [NEW] iOS16+ 推奨API：フラグでの遷移先をここで定義
+                .navigationDestination(isPresented: $showBookmarks) {
+                    BookmarksView(vm: libraryVM)
                 }
         }
-        // [NEW] テーマ反映（sepia は light ベース）
         .preferredColorScheme(settings.preferredColorScheme)
-        // [NEW] 子ビューへ配布
         .environmentObject(settings)
     }
 
@@ -50,7 +73,7 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
     ContentView()
 }
-
