@@ -37,19 +37,16 @@ final class LibraryViewModel: ObservableObject {
     // MARK: - Init
 
     init() {
-        loadLibrary()             // 起動時ロード（library.json + sample.json マージ）
-        removeMangaIfAny()        // [NEW] UI をノベル専用にするための掃除（互換温存）
+        loadLibrary()
+        removeEmptyWorksIfAny()   // ← タイプを使わないクレンジングに変更
     }
-
+    
     // MARK: - Derived (UI)
 
     /// UI 表示用のフィルタ済み配列（ノベルのみ / 検索語反映 / タイトル昇順）
     var filtered: [Work] {
         works
             .filter { w in
-                // [NEW] UI からマンガを除外（互換のためデータ自体は保持してもよい）
-                (w.type != .manga)
-                &&
                 // 検索（タイトル・著者）
                 (query.isEmpty
                  || w.title.localizedCaseInsensitiveContains(query)
@@ -68,18 +65,24 @@ final class LibraryViewModel: ObservableObject {
         }
         works = Array(map.values)
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        // 追加後もマンガは UI から隠すポリシーを維持
-        removeMangaIfAny() // [NEW]
+        removeEmptyWorksIfAny()   // ← タイプを使わないクレンジングに変更
     }
 
     // MARK: - Novel-only Step A Helpers
 
-    /// [NEW] マンガ作品を内部ストレージから除外（UI をノベル専用に）
-    /// 互換性の観点では「保持」でも良いが、ここでは永続化コストを下げるため保存前に除外
-    private func removeMangaIfAny() {
-        let novels = works.filter { $0.type != .manga }
-        if novels.count != works.count {
-            works = novels // didSet で自動保存される
+    // [AFTER] 作品が「1つもテキストページを持たない」場合は除外
+    private func removeEmptyWorksIfAny() {
+        func hasAnyText(_ w: Work) -> Bool {
+            for ch in w.chapters {
+                if ch.pages.contains(where: { if case let .text(s) = $0 { return !s.isEmpty } else { return false } }) {
+                    return true
+                }
+            }
+            return false
+        }
+        let cleaned = works.filter(hasAnyText)
+        if cleaned.count != works.count {
+            works = cleaned  // didSet で自動保存
         }
     }
 
