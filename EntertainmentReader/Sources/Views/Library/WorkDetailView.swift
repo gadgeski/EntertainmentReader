@@ -67,16 +67,26 @@ struct WorkDetailView: View {
 
 // MARK: - Preview
 
-#Preview {
-    // 簡易プレビュー用ダミーデータ
-    let chapter1 = Chapter(id: UUID(), title: "第一章 雨の匂い", pages: [
-        .text("チャイムの余韻が、雨粒にほどけていった。\n\n放課後の廊下は薄い灰色で——")
-    ])
-    let chapter2 = Chapter(id: UUID(), title: "第二章 窓辺の合図", pages: [
-        .text("窓ガラスを二度叩く小さな音。それが合図だった。\n\n譜面台の上には短い旋律だけが残っている。")
-    ])
-    let work = Work(id: UUID(), title: "放課後、雨とピアノと、きみの嘘", author: "白石 透", type: .novel, chapters: [chapter1, chapter2])
+private extension Work {
+    // [NEW] プレビュー用のサンプルデータを View の外に用意
+    static var previewSample: Work {
+        let chapter1 = Chapter(id: UUID(), title: "第一章 雨の匂い", pages: [
+            .text("チャイムの余韻が、雨粒にほどけていった。\n\n放課後の廊下は薄い灰色で——")
+        ])
+        let chapter2 = Chapter(id: UUID(), title: "第二章 窓辺の合図", pages: [
+            .text("窓ガラスを二度叩く小さな音。それが合図だった。\n\n譜面台の上には短い旋律だけが残っている。")
+        ])
+        // [CHANGED] Step B 後の Work は `type` を持たない
+        return Work(id: UUID(),
+                    title: "放課後、雨とピアノと、きみの嘘",
+                    author: "白石 透",
+                    chapters: [chapter1, chapter2])
+    }
+}
 
-    // 直近章キーは実行ごとに変わるため、プレビューでは空のままでOK
-    return NavigationStack { WorkDetailView(work: work) }
+#Preview("WorkDetailView", traits: .sizeThatFitsLayout) { // [CHANGED] traits でレイアウト指定
+    NavigationStack {
+        // [CHANGED] `return` は不要。View をそのまま返す
+        WorkDetailView(work: .previewSample)
+    }
 }
