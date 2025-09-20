@@ -29,7 +29,7 @@ struct LibraryView: View {
             } label: { Image(systemName: "tray.and.arrow.down") }
         }
         .safeAreaInset(edge: .top) {
-            FilterSummaryBar(vm: vm, filteredCount: vm.filtered.count, totalCount: vm.works.filter { $0.type != .manga }.count)
+            FilterSummaryBar(vm: vm, filteredCount: vm.filtered.count, totalCount: vm.works.count)
         }
         .fileImporter(isPresented: $showJSONPicker, allowedContentTypes: [.json], allowsMultipleSelection: true) { result in
             handleImport(result) { urls in
